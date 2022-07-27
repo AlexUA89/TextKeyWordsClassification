@@ -10,10 +10,9 @@ import java.awt.event.KeyEvent;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class MainWindow {
     public static String APP_NAME = "WeLabelData label tool";
@@ -67,6 +66,17 @@ public class MainWindow {
                         onTaskNumberChanged();
                         return true;
                     }
+//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.VK_UP == e.getKeyCode()) {
+//
+//                        return true;
+//                    }
+//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.VK_DOWN == e.getKeyCode()) {
+//                        int pos = textArea.getSelectionEnd();
+//                        textArea.setSelectionStart(pos + 100);
+//                        textArea.setSelectionEnd(pos + 100+5);
+//                        return true;
+//                    }
+
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("A")) {
                         if (prevButton.isEnabled()) {
                             onPrevClick();
@@ -90,41 +100,67 @@ public class MainWindow {
 //                    }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("E")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
-                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
-                            int pos = textArea.getSelectionStart();
-                            DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
-                                    .stream().filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos).findAny().orElse(null);
-                            if (classifiedKeyWord == null) {
-                                currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, word, DbAdapter.DEV));
-                            } else {
-                                classifiedKeyWord.setClassification(DbAdapter.DEV);
+                        if (!word.isEmpty()) {
+                            for (String keyWord : currentJob.getKeywords()) {
+                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
+                                    int pos = textArea.getSelectionStart() + i;
+                                    DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
+                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                    if (classifiedKeyWord == null) {
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, keyWord, DbAdapter.DEV));
+                                    } else {
+                                        classifiedKeyWord.setClassification(DbAdapter.DEV);
+                                    }
+                                    redraw();
+                                    return false;
+                                }
                             }
                         }
-                        redraw();
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("W")) {
+//                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+//                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
+//                            int pos = textArea.getSelectionStart();
+//                            currentResult.getClassifiedKeyWords().stream()
+//                                    .filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos)
+//                                    .findFirst().ifPresent(result -> currentResult.getClassifiedKeyWords().remove(result));
+//                        }
+//                        redraw();
+
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
-                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
-                            int pos = textArea.getSelectionStart();
-                            currentResult.getClassifiedKeyWords().stream()
-                                    .filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos)
-                                    .findFirst().ifPresent(result -> currentResult.getClassifiedKeyWords().remove(result));
+                        if (!word.isEmpty()) {
+                            for (String keyWord : currentJob.getKeywords()) {
+                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
+                                    int pos = textArea.getSelectionStart() + i;
+                                    DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
+                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                    if (classifiedKeyWord != null) {
+                                        currentResult.getClassifiedKeyWords().remove(classifiedKeyWord);
+                                        redraw();
+                                        return false;
+                                    }
+                                }
+                            }
                         }
-                        redraw();
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("Q")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
-                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
-                            int pos = textArea.getSelectionStart();
-                            DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
-                                    .stream().filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos).findAny().orElse(null);
-                            if (classifiedKeyWord == null) {
-                                currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, word, DbAdapter.NON_DEV));
-                            } else {
-                                classifiedKeyWord.setClassification(DbAdapter.NON_DEV);
+                        if (!word.isEmpty()) {
+                            for (String keyWord : currentJob.getKeywords()) {
+                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
+                                    int pos = textArea.getSelectionStart() + i;
+                                    DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
+                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                    if (classifiedKeyWord == null) {
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, keyWord, DbAdapter.NON_DEV));
+                                    } else {
+                                        classifiedKeyWord.setClassification(DbAdapter.NON_DEV);
+                                    }
+                                    redraw();
+                                    return false;
+                                }
                             }
                         }
-                        redraw();
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("G")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
@@ -312,6 +348,14 @@ public class MainWindow {
 
     private void onSaveClick() {
         if (currentResult != null && currentUserId != null && currentJob != null) {
+            Set<Integer> highPos = Arrays.stream(textArea.getHighlighter().getHighlights())
+                    .map(Highlighter.Highlight::getStartOffset).collect(Collectors.toSet());
+            currentResult.getClassifiedKeyWords().forEach(r -> highPos.remove(r.getPos()));
+            if (!highPos.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "You have not processed all keywords inside this text. " +
+                        "Please finish it before the save");
+                return;
+            }
             try {
                 adapter.saveTaskWithResult(currentResult);
             } catch (SQLException throwables) {

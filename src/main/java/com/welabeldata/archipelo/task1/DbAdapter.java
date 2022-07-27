@@ -64,7 +64,7 @@ public class DbAdapter {
                     UUID.fromString(rs.getString(8)),
                     Optional.ofNullable(rs.getString(9)).map(res -> {
                         try {
-                            return Arrays.asList(mapper.readValue(res, ClassifiedKeyWord[].class));
+                            return new ArrayList<>(Arrays.asList(mapper.readValue(res, ClassifiedKeyWord[].class)));
                         } catch (JsonProcessingException e) {
                             e.printStackTrace();
                         }
