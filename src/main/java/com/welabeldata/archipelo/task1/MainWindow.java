@@ -2,12 +2,18 @@ package com.welabeldata.archipelo.task1;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.Highlighter;
 import java.awt.*;
-import java.awt.event.*;
-import java.net.*;
+import java.awt.event.KeyEvent;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public class MainWindow {
     public static String APP_NAME = "WeLabelData label tool";
@@ -18,27 +24,23 @@ public class MainWindow {
     private JPanel mainPannel;
     private JPanel row1;
     private JPanel row2;
-    private JPanel row3;
     private JLabel savedOrNotSaved = new JLabel(NOT_SAVED);
     private JTextArea currentTaskField = new JTextArea("X");
-
-    private final List<String> classifications = Arrays.asList("NON-DEV", "BEST_PRACTICE", "BUG_FIX",
-            "INTERVIEW_QUESTION", "CODE_EXAMPLE",
-            "DOCUMENTATION_LOOKUP", "TECH_COMPARISON",
-            "PERFORMANCE_IMPROVEMENT", "DEFINITION",
-            "STACK_CHOICE", "STACK_FIT",
-            "SOLUTION_DISCOVERY", "BUSINESS_VALUE", "UNKNOWN", "KNOWLEDGE_DISCOVERY","Non-English");
-    private JComboBox classificationBox = new JComboBox(classifications.toArray());
 
     private JButton nextButton = new JButton("Next");
     private JButton prevButton = new JButton("Prev");
     private JButton loadCurrentStateButton = new JButton("Load latest state");
     private JButton saveButton = new JButton("Save task");
-    private JTextArea taskRowTextField;
+    private JTextArea textArea;
     private JTextField jobTextField = new JTextField("", 10);
     private JTextField userTextField = new JTextField("", 10);
-    private JCheckBox isForDev = new JCheckBox("Is for developers?: ", false);
-    private JTextField keyWordsJTextField = new JTextField("", 100);
+
+    Highlighter.HighlightPainter questionPainter =
+            new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
+    Highlighter.HighlightPainter devPainter =
+            new DefaultHighlighter.DefaultHighlightPainter(Color.GREEN);
+    Highlighter.HighlightPainter nonDevPainter =
+            new DefaultHighlighter.DefaultHighlightPainter(Color.RED);
 
     //STATE
     private DbAdapter adapter;
@@ -52,72 +54,92 @@ public class MainWindow {
         frame = new JFrame(APP_NAME);
         frame.setContentPane(mainPannel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        Dimension DimMax = Toolkit.getDefaultToolkit().getScreenSize();
-//        frame.setMaximumSize(DimMax);
-//        frame.setExtendedState(JFrame.MAXIMIZED_HORIZ);
-//        frame.pack();
         frame.setVisible(true);
         frame.setExtendedState(frame.getExtendedState() | JFrame.MAXIMIZED_BOTH);
 
 
-//        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-//                .addKeyEventDispatcher(e -> {
-//                    if (userTextField.isFocusOwner() || jobTextField.isFocusOwner()) {
-//                        return false;
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.VK_ENTER == e.getKeyCode()) {
-//                        onTaskNumberChanged();
-//                        return true;
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("A")) {
-//                        if (prevButton.isEnabled()) {
-//                            onPrevClick();
-//                        }
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("D")) {
-//                        if (nextButton.isEnabled()) {
-//                            onNextClick();
-//                        }
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("S")) {
-//                        if (saveButton.isEnabled()) {
-//                            onSaveClick();
-//                        }
-//                    }
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(e -> {
+                    if (userTextField.isFocusOwner() || jobTextField.isFocusOwner()) {
+                        return false;
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.VK_ENTER == e.getKeyCode()) {
+                        onTaskNumberChanged();
+                        return true;
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("A")) {
+                        if (prevButton.isEnabled()) {
+                            onPrevClick();
+                        }
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("D")) {
+                        if (nextButton.isEnabled()) {
+                            onNextClick();
+                        }
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("S")) {
+                        if (saveButton.isEnabled()) {
+                            onSaveClick();
+                        }
+                    }
 //                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("W")) {
 //                        if (nextButton.isEnabled()) {
 //                            currentResult.isDev = !currentResult.isDev;
 //                            redraw();
 //                        }
 //                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("E")) {
-//                        String word = Optional.ofNullable(taskRowTextField.getSelectedText()).orElse("")
-//                                .replace(",", "");
-//                        if (!word.isEmpty()) {
-//                            currentResult.keyWord.add(word);
-//                        }
-//                        redraw();
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("Q")) {
-//                        String word = Optional.ofNullable(keyWordsJTextField.getSelectedText()).orElse("")
-//                                .replace(",", "");
-//                        if (!word.isEmpty()) {
-//                            currentResult.keyWord.remove(word);
-//                        }
-//                        redraw();
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("R")) {
-//                        if (currentResult != null) {
-//                            return openGoogleSearch(currentResult.getTaskRow());
-//                        }
-//                    }
-//                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("T")) {
-//                        if (currentResult != null) {
-//                            return openGoogleTranslate(currentResult.getTaskRow());
-//                        }
-//                    }
-//                    return false;
-//                });
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("E")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
+                            int pos = textArea.getSelectionStart();
+                            DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
+                                    .stream().filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos).findAny().orElse(null);
+                            if (classifiedKeyWord == null) {
+                                currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, word, DbAdapter.DEV));
+                            } else {
+                                classifiedKeyWord.setClassification(DbAdapter.DEV);
+                            }
+                        }
+                        redraw();
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("W")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
+                            int pos = textArea.getSelectionStart();
+                            currentResult.getClassifiedKeyWords().stream()
+                                    .filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos)
+                                    .findFirst().ifPresent(result -> currentResult.getClassifiedKeyWords().remove(result));
+                        }
+                        redraw();
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("Q")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
+                            int pos = textArea.getSelectionStart();
+                            DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
+                                    .stream().filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos).findAny().orElse(null);
+                            if (classifiedKeyWord == null) {
+                                currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, word, DbAdapter.NON_DEV));
+                            } else {
+                                classifiedKeyWord.setClassification(DbAdapter.NON_DEV);
+                            }
+                        }
+                        redraw();
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("G")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty()) {
+                            return openGoogleSearch(word);
+                        }
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("T")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty()) {
+                            return openGoogleTranslate(word);
+                        }
+                    }
+                    return false;
+                });
 
     }
 
@@ -145,79 +167,17 @@ public class MainWindow {
         pageStart.add(row1);
 
         row2 = new JPanel();
-//        classificationBox.setBounds(50, 50, 90, 20);
-//        classificationBox.addActionListener(new ActionListener() {
-//            @Override
-//            public void actionPerformed(ActionEvent e) {
-//                if (currentResult != null) {
-//                    currentResult.classification = (String) classificationBox.getSelectedItem();
-//                }
-//            }
-//        });
-//        for (KeyListener listener : classificationBox.getKeyListeners()) {
-//            classificationBox.removeKeyListener(listener);
-//        }
-//        row2.add(classificationBox);
-
-        taskRowTextField = new JTextArea();
-        taskRowTextField.setEditable(false);
-//        row2.add(taskRowTextField);
-        taskRowTextField.setFont(font1);
+        textArea = new JTextArea();
+        textArea.setEditable(false);
+        textArea.setFont(font1);
+        textArea.setLineWrap(true);
         row2.add(savedOrNotSaved);
         row2.add(saveButton);
         pageStart.add(row2);
         mainPannel.add(pageStart, BorderLayout.PAGE_START);
-
-
-        taskRowTextField.setText("asdasdsad\n " +
-                "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n" +
-                        "asd\n"
-                );
-
-        JScrollPane scrollPane = new JScrollPane(taskRowTextField);
-        keyWordsJTextField.setEditable(false);
+        textArea.setFont(textArea.getFont().deriveFont(14f));
+        JScrollPane scrollPane = new JScrollPane(textArea);
+//        scrollPane.setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_NEVER);
         mainPannel.add(scrollPane, BorderLayout.CENTER);
 
         nextButton.addActionListener(e -> onNextClick());
@@ -227,17 +187,6 @@ public class MainWindow {
         prevButton.setEnabled(false);
         saveButton.setEnabled(false);
         loadCurrentStateButton.addActionListener(e -> onLoadStateClick());
-//        isForDev.addItemListener(e -> {
-//            if (currentResult != null) {
-//                if (e.getStateChange() == ItemEvent.SELECTED) {
-//                    currentResult.isDev = true;
-////                    classificationBox.setSelectedIndex(13);
-//                } else {
-//                    currentResult.isDev = false;
-////                    classificationBox.setSelectedIndex(0);
-//                }
-//            }
-//        });
 
         adapter = new DbAdapter();
     }
@@ -296,22 +245,48 @@ public class MainWindow {
     private void redraw() {
         if (currentResult != null) {
             currentTaskField.setText(allResults.indexOf(currentResult) + "");
-//            taskRowTextField.setText(currentResult.getTaskRow());
-//            keyWordsJTextField.setText(String.join(",", currentResult.getKeyWord()));
-//            isForDev.setSelected(currentResult.isDev);
-//            classificationBox.setSelectedIndex(classifications.indexOf(currentResult.getClassification()));
+            if (!textArea.getText().equals(currentResult.getContent())) {
+                textArea.setText(currentResult.getContent());
+            }
+            Highlighter highlighter = textArea.getHighlighter();
+            highlighter.removeAllHighlights();
+            currentJob.getKeywords().forEach(word -> {
+                for (int i = -1; (i = currentResult.getContent().indexOf(word, i + 1)) != -1; i++) {
+                    int[] temp = new int[]{i};
+                    if (currentResult.getClassifiedKeyWords().stream()
+                            .noneMatch(r -> r.getKeyWord().equals(word) && r.getPos() == temp[0])) {
+                        try {
+                            highlighter.addHighlight(i, i + word.length(), questionPainter);
+                        } catch (BadLocationException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+
+            currentResult.getClassifiedKeyWords().forEach(classifiedKeyWord -> {
+                try {
+                    if (classifiedKeyWord.getClassification().equals(DbAdapter.NON_DEV)) {
+                        highlighter.addHighlight(classifiedKeyWord.getPos(),
+                                classifiedKeyWord.getPos() + classifiedKeyWord.getKeyWord().length(), nonDevPainter);
+                    } else {
+                        highlighter.addHighlight(classifiedKeyWord.getPos(),
+                                classifiedKeyWord.getPos() + classifiedKeyWord.getKeyWord().length(), devPainter);
+                    }
+                } catch (BadLocationException e) {
+                    e.printStackTrace();
+                }
+            });
+
             if (currentResult.getSavedDate() == null) {
                 savedOrNotSaved.setText(NOT_SAVED);
             } else {
                 savedOrNotSaved.setText(SAVED);
             }
         } else {
-            classificationBox.setSelectedIndex(0);
             currentTaskField.setText("X");
-            taskRowTextField.setText("");
-            keyWordsJTextField.setText("");
+            textArea.setText("");
             savedOrNotSaved.setText(NOT_SAVED);
-            isForDev.setSelected(false);
         }
         if (currentResult != null && currentUserId != null && currentJob != null) {
             saveButton.setEnabled(true);
@@ -320,8 +295,8 @@ public class MainWindow {
             nextButton.setEnabled(true);
             prevButton.setEnabled(true);
         }
-        isForDev.setEnabled(currentResult != null);
-        frame.pack();
+        textArea.setEnabled(currentResult != null);
+//        frame.pack();
     }
 
     private void onPrevClick() {
@@ -337,16 +312,6 @@ public class MainWindow {
 
     private void onSaveClick() {
         if (currentResult != null && currentUserId != null && currentJob != null) {
-//            if (currentResult.isDev && classificationBox.getSelectedIndex() == 0) {
-//                JOptionPane.showMessageDialog(frame, "If you marked the sentence as DEV," +
-//                        " classification should not be 'NON-DEV'");
-//                return;
-//            }
-//            if (!currentResult.isDev && classificationBox.getSelectedIndex() != 0) {
-//                JOptionPane.showMessageDialog(frame, "If you marked the sentence as NON DEV," +
-//                        " classification should be 'NON-DEV'");
-//                return;
-//            }
             try {
                 adapter.saveTaskWithResult(currentResult);
             } catch (SQLException throwables) {

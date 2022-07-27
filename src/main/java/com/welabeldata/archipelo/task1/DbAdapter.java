@@ -9,7 +9,10 @@ import java.util.*;
 
 public class DbAdapter {
 
-    public static final String DEFAULT_CLASSIFICATION = "NON-DEV";
+
+    public static final String DEV = "DEV";
+    public static final String NON_DEV = "NON-DEV";
+    public static final String DEFAULT_CLASSIFICATION = NON_DEV;
 
     Connection conn;
 
@@ -59,14 +62,14 @@ public class DbAdapter {
             result.add(new TaskWithResult(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
                     rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
                     UUID.fromString(rs.getString(8)),
-                    Optional.of(rs.getString(9)).map(res -> {
+                    Optional.ofNullable(rs.getString(9)).map(res -> {
                         try {
                             return Arrays.asList(mapper.readValue(res, ClassifiedKeyWord[].class));
                         } catch (JsonProcessingException e) {
                             e.printStackTrace();
                         }
                         return new ArrayList<ClassifiedKeyWord>();
-                    }).orElse(new ArrayList<>()), Optional.ofNullable(rs.getTimestamp(7)).map(Timestamp::toLocalDateTime).orElse(null)));
+                    }).orElse(new ArrayList<>()), Optional.ofNullable(rs.getTimestamp(10)).map(Timestamp::toLocalDateTime).orElse(null)));
         }
         return result;
     }
@@ -109,7 +112,7 @@ public class DbAdapter {
         Statement stmt = conn.createStatement();
         ObjectMapper mapper = new ObjectMapper();
         try {
-            stmt.executeUpdate("update devs_strings.results  set json_result = '" + mapper.writeValueAsString(taskToSave.classifiedKeyWords)
+            stmt.executeUpdate("update devs_strings.results  set result_json = '" + mapper.writeValueAsString(taskToSave.classifiedKeyWords)
                     + "', saved_date = now() where id = '" + taskToSave.getResultId() + "' ");
         } catch (JsonProcessingException e) {
             e.printStackTrace();
@@ -121,6 +124,15 @@ public class DbAdapter {
         private int pos;
         private String keyWord;
         private String classification = DEFAULT_CLASSIFICATION;
+
+        public ClassifiedKeyWord(int pos, String keyWord, String classification) {
+            this.pos = pos;
+            this.keyWord = keyWord;
+            this.classification = classification;
+        }
+
+        public ClassifiedKeyWord() {
+        }
 
         public int getPos() {
             return pos;
