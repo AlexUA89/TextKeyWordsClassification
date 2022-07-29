@@ -35,7 +35,7 @@ public class MainWindow {
     private JTextField userTextField = new JTextField("", 10);
 
     Highlighter.HighlightPainter questionPainter =
-            new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
+            new DefaultHighlighter.DefaultHighlightPainter(Color.MAGENTA);
     Highlighter.HighlightPainter devPainter =
             new DefaultHighlighter.DefaultHighlightPainter(Color.GREEN);
     Highlighter.HighlightPainter nonDevPainter =
@@ -213,8 +213,11 @@ public class MainWindow {
         mainPannel.add(pageStart, BorderLayout.PAGE_START);
         textArea.setFont(textArea.getFont().deriveFont(14f));
         JScrollPane scrollPane = new JScrollPane(textArea);
-//        scrollPane.setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_NEVER);
         mainPannel.add(scrollPane, BorderLayout.CENTER);
+        JScrollBar vertical = scrollPane.getVerticalScrollBar();
+        InputMap im = vertical.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        im.put(KeyStroke.getKeyStroke("F"), "positiveUnitIncrement");
+        im.put(KeyStroke.getKeyStroke("R"), "negativeUnitIncrement");
 
         nextButton.addActionListener(e -> onNextClick());
         prevButton.addActionListener(e -> onPrevClick());
@@ -336,7 +339,7 @@ public class MainWindow {
     }
 
     private void onPrevClick() {
-        if (currentResult != null && currentResult.savedDate == null) {
+        if (currentResult != null && currentResult.getSavedDate() == null) {
             JOptionPane.showMessageDialog(frame, "Please save the results before going to another task!");
             return;
         }
@@ -367,7 +370,7 @@ public class MainWindow {
     }
 
     private void onNextClick() {
-        if (currentResult != null && currentResult.savedDate == null) {
+        if (currentResult != null && currentResult.getSavedDate() == null) {
             JOptionPane.showMessageDialog(frame, "Please save the results before going to another task!");
             return;
         }
@@ -402,7 +405,7 @@ public class MainWindow {
             JOptionPane.showMessageDialog(frame, "There is no anything to load");
             return;
         }
-        if (currentResult != null && currentResult.savedDate == null) {
+        if (currentResult != null && currentResult.getSavedDate() == null) {
             JOptionPane.showMessageDialog(frame, "Please save the results before going to another task!");
             return;
         }

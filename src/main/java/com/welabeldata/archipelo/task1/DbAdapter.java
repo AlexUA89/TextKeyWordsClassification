@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DbAdapter {
 
@@ -111,8 +112,10 @@ public class DbAdapter {
     public void saveTaskWithResult(TaskWithResult taskToSave) throws SQLException {
         Statement stmt = conn.createStatement();
         ObjectMapper mapper = new ObjectMapper();
+        List<ClassifiedKeyWord> result = taskToSave.getClassifiedKeyWords()
+                .stream().sorted(Comparator.comparingInt(ClassifiedKeyWord::getPos)).collect(Collectors.toList());
         try {
-            stmt.executeUpdate("update devs_strings.results  set result_json = '" + mapper.writeValueAsString(taskToSave.classifiedKeyWords)
+            stmt.executeUpdate("update devs_strings.results  set result_json = '" + mapper.writeValueAsString(result)
                     + "', saved_date = now() where id = '" + taskToSave.getResultId() + "' ");
         } catch (JsonProcessingException e) {
             e.printStackTrace();
@@ -160,9 +163,9 @@ public class DbAdapter {
     }
 
     public static class TaskWithResult extends Task {
-        UUID resultId;
-        List<ClassifiedKeyWord> classifiedKeyWords;
-        LocalDateTime savedDate;
+        private UUID resultId;
+        private List<ClassifiedKeyWord> classifiedKeyWords;
+        private LocalDateTime savedDate;
 
         public TaskWithResult(UUID id, UUID jobId, String query, String link, String title, String description, String content, UUID resultId, List<ClassifiedKeyWord> classifiedKeyWords, LocalDateTime savedDate) {
             super(id, jobId, query, link, title, description, content);
