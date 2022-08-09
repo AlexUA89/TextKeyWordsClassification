@@ -44,17 +44,16 @@ public class DbAdapter {
 
     public Job getJobIdByName(String jobName) throws SQLException {
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("select id, persons_per_task, keywords, name from devs_strings.job where name = '" + jobName + "'");
+        ResultSet rs = stmt.executeQuery("select id, persons_per_task, name from devs_strings.job where name = '" + jobName + "'");
         if (rs.next()) {
-            return new Job(UUID.fromString(rs.getString(1)), rs.getInt(2),
-                    new HashSet<>(Arrays.asList(rs.getString(3).split(","))), rs.getString(4));
+            return new Job(UUID.fromString(rs.getString(1)), rs.getInt(2), rs.getString(3));
         }
         return null;
     }
 
     public List<TaskWithResult> getAllCurrentTasksForUser(UUID userId, UUID job_id) throws SQLException {
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content, r.id, r.result_json, r.saved_date from devs_strings.results r " +
+        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content, t.words, r.id, r.result_json, r.saved_date from devs_strings.results r " +
                 " right join devs_strings.tasks t on t.id = r.task_id " +
                 " where r.task_id in (select id from devs_strings.tasks where job_id = '" + job_id + "') and r.labeler_id = '" + userId + "' order by r.created_time;");
         List<TaskWithResult> result = new ArrayList<>();
@@ -62,31 +61,28 @@ public class DbAdapter {
         while (rs.next()) {
             result.add(new TaskWithResult(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
                     rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
-                    UUID.fromString(rs.getString(8)),
-                    Optional.ofNullable(rs.getString(9)).map(res -> {
-                        try {
-                            return new ArrayList<>(Arrays.asList(mapper.readValue(res, ClassifiedKeyWord[].class)));
-                        } catch (JsonProcessingException e) {
-                            e.printStackTrace();
-                        }
-                        return new ArrayList<ClassifiedKeyWord>();
-                    }).orElse(new ArrayList<>()), Optional.ofNullable(rs.getTimestamp(10)).map(Timestamp::toLocalDateTime).orElse(null)));
+                    mapStringToListOfKeyWords(rs.getString(8)),
+                    UUID.fromString(rs.getString(9)),
+                    mapStringToListOfClassKeyWords(rs.getString(10)),
+                    Optional.ofNullable(rs.getTimestamp(11)).map(Timestamp::toLocalDateTime).orElse(null)));
         }
         return result;
     }
 
     public TaskWithResult getNextTaskForUser(UUID userId, UUID jobId, Integer usersPerTask) throws SQLException {
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content from devs_strings.tasks t " +
+        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content, t.words from devs_strings.tasks t " +
                 " where t.id not in(select task_id from devs_strings.results where labeler_id = '" + userId + "') " +
                 " and t.job_id = '" + jobId + "' " +
                 " and t.id not in (select task_id from (select count(*) as am, task_id from devs_strings.results group by task_id) temp where temp.am >= " + usersPerTask + ") limit 1;");
+
         if (rs.next()) {
             UUID resultId = UUID.randomUUID();
             stmt = conn.createStatement();
             stmt.executeUpdate("INSERT INTO devs_strings.results (id, task_id, labeler_id) VALUES ('" + resultId + "','" + rs.getString(1) + "', '" + userId + "')");
             return new TaskWithResult(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
-                    rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7), resultId,
+                    rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
+                    mapStringToListOfKeyWords(rs.getString(8)), resultId,
                     new ArrayList<>(), null);
         }
         return null;
@@ -94,7 +90,7 @@ public class DbAdapter {
 
     public TaskWithResult getNextTaskForExpert(UUID userId, UUID jobId, Integer usersPerTask) throws SQLException {
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content from devs_strings.tasks t " +
+        ResultSet rs = stmt.executeQuery("select t.id, t.job_id, t.query, t.link, t.title, t.description, t.content, t.words from devs_strings.tasks t " +
                 " where t.id not in(select task_id from devs_strings.results where labeler_id = '" + userId + "') " +
                 " and t.job_id = '" + jobId + "' " +
                 " and t.id in (select task_id from (select count(*) as am, task_id from devs_strings.results group by task_id) temp where temp.am = " + usersPerTask + ") limit 1;");
@@ -103,7 +99,8 @@ public class DbAdapter {
             stmt = conn.createStatement();
             stmt.executeUpdate("INSERT INTO devs_strings.results (id, task_id, labeler_id) VALUES ('" + resultId + "','" + rs.getString(1) + "', '" + userId + "')");
             return new TaskWithResult(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
-                    rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7), resultId,
+                    rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
+                    mapStringToListOfKeyWords(rs.getString(8)), resultId,
                     new ArrayList<>(), null);
         }
         return null;
@@ -113,7 +110,8 @@ public class DbAdapter {
         Statement stmt = conn.createStatement();
         ObjectMapper mapper = new ObjectMapper();
         List<ClassifiedKeyWord> result = taskToSave.getClassifiedKeyWords()
-                .stream().sorted(Comparator.comparingInt(ClassifiedKeyWord::getPos)).collect(Collectors.toList());
+                .stream().sorted(Comparator.comparingInt(o -> o.getStartPos() + o.getEndPos()))
+                .collect(Collectors.toList());
         try {
             stmt.executeUpdate("update devs_strings.results  set result_json = '" + mapper.writeValueAsString(result)
                     + "', saved_date = now() where id = '" + taskToSave.getResultId() + "' ");
@@ -123,34 +121,15 @@ public class DbAdapter {
         taskToSave.savedDate = LocalDateTime.now();
     }
 
-    public static class ClassifiedKeyWord {
-        private int pos;
-        private String keyWord;
-        private String classification = DEFAULT_CLASSIFICATION;
+    public static class ClassifiedKeyWord extends KeyWord {
+        private String classification;
 
-        public ClassifiedKeyWord(int pos, String keyWord, String classification) {
-            this.pos = pos;
-            this.keyWord = keyWord;
+        public ClassifiedKeyWord(KeyWord keyWord, String classification) {
+            super(keyWord.getStartPos(), keyWord.getEndPos(), keyWord.getType());
             this.classification = classification;
         }
 
         public ClassifiedKeyWord() {
-        }
-
-        public int getPos() {
-            return pos;
-        }
-
-        public void setPos(int pos) {
-            this.pos = pos;
-        }
-
-        public String getKeyWord() {
-            return keyWord;
-        }
-
-        public void setKeyWord(String keyWord) {
-            this.keyWord = keyWord;
         }
 
         public String getClassification() {
@@ -167,8 +146,11 @@ public class DbAdapter {
         private List<ClassifiedKeyWord> classifiedKeyWords;
         private LocalDateTime savedDate;
 
-        public TaskWithResult(UUID id, UUID jobId, String query, String link, String title, String description, String content, UUID resultId, List<ClassifiedKeyWord> classifiedKeyWords, LocalDateTime savedDate) {
-            super(id, jobId, query, link, title, description, content);
+        public TaskWithResult(UUID id, UUID jobId, String query, String link, String title, String description,
+                              String content, List<KeyWord> keyWords, UUID resultId,
+                              List<ClassifiedKeyWord> classifiedKeyWords,
+                              LocalDateTime savedDate) {
+            super(id, jobId, query, link, title, description, content, keyWords);
             this.resultId = resultId;
             this.classifiedKeyWords = classifiedKeyWords;
             this.savedDate = savedDate;
@@ -187,6 +169,45 @@ public class DbAdapter {
         }
     }
 
+    public static class KeyWord {
+        private int startPos;
+        private int endPos;
+        private String type;
+
+        public KeyWord(int startPos, int endPos, String type) {
+            this.startPos = startPos;
+            this.endPos = endPos;
+            this.type = type;
+        }
+
+        public KeyWord() {
+        }
+
+        public int getStartPos() {
+            return startPos;
+        }
+
+        public void setStartPos(int startPos) {
+            this.startPos = startPos;
+        }
+
+        public int getEndPos() {
+            return endPos;
+        }
+
+        public void setEndPos(int endPos) {
+            this.endPos = endPos;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+    }
+
     public static class Task {
         private final UUID id;
         private final UUID jobId;
@@ -195,8 +216,10 @@ public class DbAdapter {
         private final String title;
         private final String description;
         private final String content;
+        private final List<KeyWord> keyWords;
 
-        public Task(UUID id, UUID jobId, String query, String link, String title, String description, String content) {
+        public Task(UUID id, UUID jobId, String query, String link, String title, String description,
+                    String content, List<KeyWord> keyWords) {
             this.id = id;
             this.jobId = jobId;
             this.query = query;
@@ -204,6 +227,7 @@ public class DbAdapter {
             this.title = title;
             this.description = description;
             this.content = content;
+            this.keyWords = keyWords;
         }
 
         public UUID getId() {
@@ -233,18 +257,20 @@ public class DbAdapter {
         public String getContent() {
             return content;
         }
+
+        public List<KeyWord> getKeyWords() {
+            return keyWords;
+        }
     }
 
     public static class Job {
         private final UUID id;
         private final Integer personPerTask;
         private final String name;
-        private final Set<String> keywords;
 
-        public Job(UUID id, Integer personPerTask, Set<String> keywords, String name) {
+        public Job(UUID id, Integer personPerTask, String name) {
             this.id = id;
             this.personPerTask = personPerTask;
-            this.keywords = keywords;
             this.name = name;
         }
 
@@ -259,10 +285,34 @@ public class DbAdapter {
         public String getName() {
             return name;
         }
+    }
 
-        public Set<String> getKeywords() {
-            return keywords;
-        }
+    private List<KeyWord> mapStringToListOfKeyWords(String data) {
+        ObjectMapper mapper = new ObjectMapper();
+        return Optional.ofNullable(data).map(res -> {
+            try {
+                return new ArrayList<>(Arrays.asList(mapper.readValue(res, KeyWord[].class)))
+                        .stream().sorted(Comparator.comparingInt(o -> o.getStartPos() + o.getEndPos()))
+                        .collect(Collectors.toList());
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+            return new ArrayList<KeyWord>();
+        }).orElse(new ArrayList<>());
+    }
+
+    private List<ClassifiedKeyWord> mapStringToListOfClassKeyWords(String data) {
+        ObjectMapper mapper = new ObjectMapper();
+        return Optional.ofNullable(data).map(res -> {
+            try {
+                return new ArrayList<>(Arrays.asList(mapper.readValue(res, ClassifiedKeyWord[].class)))
+                        .stream().sorted(Comparator.comparingInt(o -> o.getStartPos() + o.getEndPos()))
+                        .collect(Collectors.toList());
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+            return new ArrayList<ClassifiedKeyWord>();
+        }).orElse(new ArrayList<>());
     }
 
 

@@ -12,6 +12,7 @@ import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class MainWindow {
@@ -100,14 +101,16 @@ public class MainWindow {
 //                    }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("E")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        int startSelected = textArea.getSelectionStart();
+                        int endSelected = textArea.getSelectionEnd();
                         if (!word.isEmpty()) {
-                            for (String keyWord : currentJob.getKeywords()) {
-                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
-                                    int pos = textArea.getSelectionStart() + i;
+                            for (DbAdapter.KeyWord keyWord : currentResult.getKeyWords()) {
+                                if (keyWord.getStartPos() >= startSelected && keyWord.getEndPos() <= endSelected) {
                                     DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
-                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                            .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
+                                                    && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
                                     if (classifiedKeyWord == null) {
-                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, keyWord, DbAdapter.DEV));
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.DEV));
                                     } else {
                                         classifiedKeyWord.setClassification(DbAdapter.DEV);
                                     }
@@ -118,22 +121,16 @@ public class MainWindow {
                         }
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("W")) {
-//                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
-//                        if (!word.isEmpty() && currentJob.getKeywords().contains(word)) {
-//                            int pos = textArea.getSelectionStart();
-//                            currentResult.getClassifiedKeyWords().stream()
-//                                    .filter(r -> r.getKeyWord().equals(word) && r.getPos() == pos)
-//                                    .findFirst().ifPresent(result -> currentResult.getClassifiedKeyWords().remove(result));
-//                        }
-//                        redraw();
 
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        int startSelected = textArea.getSelectionStart();
+                        int endSelected = textArea.getSelectionEnd();
                         if (!word.isEmpty()) {
-                            for (String keyWord : currentJob.getKeywords()) {
-                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
-                                    int pos = textArea.getSelectionStart() + i;
+                            for (DbAdapter.KeyWord keyWord : currentResult.getKeyWords()) {
+                                if (keyWord.getStartPos() >= startSelected && keyWord.getEndPos() <= endSelected) {
                                     DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
-                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                            .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
+                                                    && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
                                     if (classifiedKeyWord != null) {
                                         currentResult.getClassifiedKeyWords().remove(classifiedKeyWord);
                                         redraw();
@@ -145,14 +142,16 @@ public class MainWindow {
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("Q")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        int startSelected = textArea.getSelectionStart();
+                        int endSelected = textArea.getSelectionEnd();
                         if (!word.isEmpty()) {
-                            for (String keyWord : currentJob.getKeywords()) {
-                                for (int i = -1; (i = word.indexOf(keyWord, i + 1)) != -1; i++) {
-                                    int pos = textArea.getSelectionStart() + i;
+                            for (DbAdapter.KeyWord keyWord : currentResult.getKeyWords()) {
+                                if (keyWord.getStartPos() >= startSelected && keyWord.getEndPos() <= endSelected) {
                                     DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
-                                            .stream().filter(r -> r.getKeyWord().equals(keyWord) && r.getPos() == pos).findAny().orElse(null);
+                                            .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
+                                                    && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
                                     if (classifiedKeyWord == null) {
-                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(pos, keyWord, DbAdapter.NON_DEV));
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.NON_DEV));
                                     } else {
                                         classifiedKeyWord.setClassification(DbAdapter.NON_DEV);
                                     }
@@ -281,6 +280,10 @@ public class MainWindow {
         redraw();
     }
 
+    private String hashFunction(DbAdapter.KeyWord word) {
+        return word.getStartPos() + "," + word.getEndPos();
+    }
+
     private void redraw() {
         if (currentResult != null) {
             currentTaskField.setText(allResults.indexOf(currentResult) + "");
@@ -289,16 +292,14 @@ public class MainWindow {
             }
             Highlighter highlighter = textArea.getHighlighter();
             highlighter.removeAllHighlights();
-            currentJob.getKeywords().forEach(word -> {
-                for (int i = -1; (i = currentResult.getContent().indexOf(word, i + 1)) != -1; i++) {
-                    int[] temp = new int[]{i};
-                    if (currentResult.getClassifiedKeyWords().stream()
-                            .noneMatch(r -> r.getKeyWord().equals(word) && r.getPos() == temp[0])) {
-                        try {
-                            highlighter.addHighlight(i, i + word.length(), questionPainter);
-                        } catch (BadLocationException e) {
-                            e.printStackTrace();
-                        }
+            Map<String, DbAdapter.ClassifiedKeyWord> classWordsMap = currentResult.getClassifiedKeyWords()
+                    .stream().collect(Collectors.toMap(this::hashFunction, Function.identity()));
+            currentResult.getKeyWords().forEach(w -> {
+                if (!classWordsMap.containsKey(hashFunction(w))) {
+                    try {
+                        highlighter.addHighlight(w.getStartPos(), w.getEndPos(), questionPainter);
+                    } catch (BadLocationException e) {
+                        e.printStackTrace();
                     }
                 }
             });
@@ -306,11 +307,11 @@ public class MainWindow {
             currentResult.getClassifiedKeyWords().forEach(classifiedKeyWord -> {
                 try {
                     if (classifiedKeyWord.getClassification().equals(DbAdapter.NON_DEV)) {
-                        highlighter.addHighlight(classifiedKeyWord.getPos(),
-                                classifiedKeyWord.getPos() + classifiedKeyWord.getKeyWord().length(), nonDevPainter);
+                        highlighter.addHighlight(classifiedKeyWord.getStartPos(),
+                                classifiedKeyWord.getEndPos(), nonDevPainter);
                     } else {
-                        highlighter.addHighlight(classifiedKeyWord.getPos(),
-                                classifiedKeyWord.getPos() + classifiedKeyWord.getKeyWord().length(), devPainter);
+                        highlighter.addHighlight(classifiedKeyWord.getStartPos(),
+                                classifiedKeyWord.getEndPos(), devPainter);
                     }
                 } catch (BadLocationException e) {
                     e.printStackTrace();
@@ -351,9 +352,9 @@ public class MainWindow {
 
     private void onSaveClick() {
         if (currentResult != null && currentUserId != null && currentJob != null) {
-            Set<Integer> highPos = Arrays.stream(textArea.getHighlighter().getHighlights())
-                    .map(Highlighter.Highlight::getStartOffset).collect(Collectors.toSet());
-            currentResult.getClassifiedKeyWords().forEach(r -> highPos.remove(r.getPos()));
+            Set<String> highPos = currentResult.getKeyWords()
+                    .stream().map(this::hashFunction).collect(Collectors.toSet());
+            currentResult.getClassifiedKeyWords().forEach(r -> highPos.remove(hashFunction(r)));
             if (!highPos.isEmpty()) {
                 JOptionPane.showMessageDialog(frame, "You have not processed all keywords inside this text. " +
                         "Please finish it before the save");

@@ -16,7 +16,6 @@ CREATE TABLE DEVS_STRINGS.JOB
 (
     id               uuid PRIMARY KEY   DEFAULT uuid_generate_v4(),
     name             VARCHAR   NOT NULL UNIQUE,
-    keywords             VARCHAR   NOT NULL,
     persons_per_task integer   NOT NULL,
     created_time     timestamp NOT NULL DEFAULT now()
 );
@@ -30,6 +29,7 @@ CREATE TABLE DEVS_STRINGS.TASKS
     title     VARCHAR   NOT NULL,
     description     VARCHAR   NOT NULL,
     content     VARCHAR   NOT NULL,
+    words     VARCHAR   NOT NULL,
     created_time timestamp NOT NULL DEFAULT now()
 );
 
@@ -54,4 +54,12 @@ ON ALL TABLES IN SCHEMA DEVS_STRINGS TO labeler;
 GRANT INSERT ON TABLE DEVS_STRINGS.RESULTS TO labeler;
 GRANT UPDATE ON TABLE DEVS_STRINGS.RESULTS TO labeler;
 
-ALTER TABLE DEVS_STRINGS.RESULTS ADD COLUMN classification VARCHAR DEFAULT 'NON-DEV';
+insert into devs_strings.labelers (name) values ('alex');
+insert into devs_strings.labelers (name) values ('blysh@nubip.edu.ua');
+insert into devs_strings.labelers (name) values ('delffinnn@gmail.com');
+insert into devs_strings.labelers (name) values ('iryna.sharova@icloud.com');
+insert into devs_strings.labelers (name) values ('natalia.shchudla@gmail.com');
+insert into devs_strings.labelers (name) values ('azik.haciyev@gmail.com');
+insert into devs_strings.labelers (name) values ('meghdad@Archipelo.co');
+
+insert into DEVS_STRINGS.job (name, persons_per_task) values ('JOB_1', 1);
