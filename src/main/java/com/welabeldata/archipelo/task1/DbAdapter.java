@@ -11,9 +11,9 @@ import java.util.stream.Collectors;
 public class DbAdapter {
 
 
-    public static final String DEV = "DEV";
-    public static final String NON_DEV = "NON-DEV";
-    public static final String DEFAULT_CLASSIFICATION = NON_DEV;
+    public static final String NPM_PACKAGE = "NPM_PACKAGE";
+    public static final String EN_NPM_PACKAGE = "EN_NPM_PACKAGE";
+    public static final String WORD = "WORD";
 
     Connection conn;
 

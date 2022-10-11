@@ -30,6 +30,7 @@ CREATE TABLE DEVS_STRINGS.TASKS
     description     VARCHAR   NOT NULL,
     content     VARCHAR   NOT NULL,
     words     VARCHAR   NOT NULL,
+    original_json     VARCHAR   NOT NULL,
     created_time timestamp NOT NULL DEFAULT now()
 );
 

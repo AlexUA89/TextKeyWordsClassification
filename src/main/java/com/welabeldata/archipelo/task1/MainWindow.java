@@ -7,6 +7,9 @@ import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.SQLException;
@@ -37,10 +40,12 @@ public class MainWindow {
 
     Highlighter.HighlightPainter questionPainter =
             new DefaultHighlighter.DefaultHighlightPainter(Color.MAGENTA);
-    Highlighter.HighlightPainter devPainter =
+    Highlighter.HighlightPainter NPM_PACKAGE =
             new DefaultHighlighter.DefaultHighlightPainter(Color.GREEN);
-    Highlighter.HighlightPainter nonDevPainter =
+    Highlighter.HighlightPainter WORD =
             new DefaultHighlighter.DefaultHighlightPainter(Color.RED);
+    Highlighter.HighlightPainter EN_NPM_PACKAGE =
+            new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
 
     //STATE
     private DbAdapter adapter;
@@ -110,18 +115,17 @@ public class MainWindow {
                                             .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
                                                     && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
                                     if (classifiedKeyWord == null) {
-                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.DEV));
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.EN_NPM_PACKAGE));
                                     } else {
-                                        classifiedKeyWord.setClassification(DbAdapter.DEV);
+                                        classifiedKeyWord.setClassification(DbAdapter.EN_NPM_PACKAGE);
                                     }
                                     redraw();
-                                    return false;
                                 }
                             }
+                            return false;
                         }
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("W")) {
-
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
                         int startSelected = textArea.getSelectionStart();
                         int endSelected = textArea.getSelectionEnd();
@@ -131,13 +135,15 @@ public class MainWindow {
                                     DbAdapter.ClassifiedKeyWord classifiedKeyWord = currentResult.getClassifiedKeyWords()
                                             .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
                                                     && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
-                                    if (classifiedKeyWord != null) {
-                                        currentResult.getClassifiedKeyWords().remove(classifiedKeyWord);
-                                        redraw();
-                                        return false;
+                                    if (classifiedKeyWord == null) {
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.WORD));
+                                    } else {
+                                        classifiedKeyWord.setClassification(DbAdapter.WORD);
                                     }
+                                    redraw();
                                 }
                             }
+                            return false;
                         }
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("Q")) {
@@ -151,20 +157,26 @@ public class MainWindow {
                                             .stream().filter(r -> r.getStartPos() == keyWord.getStartPos()
                                                     && r.getEndPos() == keyWord.getEndPos()).findAny().orElse(null);
                                     if (classifiedKeyWord == null) {
-                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.NON_DEV));
+                                        currentResult.getClassifiedKeyWords().add(new DbAdapter.ClassifiedKeyWord(keyWord, DbAdapter.NPM_PACKAGE));
                                     } else {
-                                        classifiedKeyWord.setClassification(DbAdapter.NON_DEV);
+                                        classifiedKeyWord.setClassification(DbAdapter.NPM_PACKAGE);
                                     }
                                     redraw();
-                                    return false;
                                 }
                             }
+                            return false;
                         }
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("G")) {
                         String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
                         if (!word.isEmpty()) {
                             return openGoogleSearch(word);
+                        }
+                    }
+                    if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("N")) {
+                        String word = Optional.ofNullable(textArea.getSelectedText()).orElse("");
+                        if (!word.isEmpty()) {
+                            return openNpmSearch(word);
                         }
                     }
                     if (KeyEvent.KEY_RELEASED == e.getID() && KeyEvent.getKeyText(e.getKeyCode()).equals("T")) {
@@ -306,12 +318,15 @@ public class MainWindow {
 
             currentResult.getClassifiedKeyWords().forEach(classifiedKeyWord -> {
                 try {
-                    if (classifiedKeyWord.getClassification().equals(DbAdapter.NON_DEV)) {
+                    if (classifiedKeyWord.getClassification().equals(DbAdapter.WORD)) {
                         highlighter.addHighlight(classifiedKeyWord.getStartPos(),
-                                classifiedKeyWord.getEndPos(), nonDevPainter);
+                                classifiedKeyWord.getEndPos(), WORD);
+                    } else if (classifiedKeyWord.getClassification().equals(DbAdapter.EN_NPM_PACKAGE)) {
+                        highlighter.addHighlight(classifiedKeyWord.getStartPos(),
+                                classifiedKeyWord.getEndPos(), EN_NPM_PACKAGE);
                     } else {
                         highlighter.addHighlight(classifiedKeyWord.getStartPos(),
-                                classifiedKeyWord.getEndPos(), devPainter);
+                                classifiedKeyWord.getEndPos(), NPM_PACKAGE);
                     }
                 } catch (BadLocationException e) {
                     e.printStackTrace();
@@ -442,6 +457,20 @@ public class MainWindow {
         return false;
     }
 
+    public static boolean openNpmSearch(String message) {
+        Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+        if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+            try {
+                URL url = new URL("https://www.npmjs.com/search?q=" + URLEncoder.encode(message));
+                desktop.browse(url.toURI());
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
+    }
+
     public static boolean openGoogleTranslate(String message) {
         Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
         if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
@@ -457,6 +486,18 @@ public class MainWindow {
     }
 
     public static void main(String[] args) throws SQLException {
+        // Creating a File object that
+        // represents the disk file
+        PrintStream o = null;
+        try {
+            o = new PrintStream("logs.txt");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        // Assign o to output stream
+        // using setOut() method
+        System.setErr(o);
+
         new MainWindow();
     }
 
